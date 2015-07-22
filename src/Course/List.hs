@@ -277,11 +277,10 @@ produce f iv = iv :. produce f (f iv)
 -- prop> let types = x :: List Int in notReverse x ++ notReverse y == notReverse (y ++ x)
 --
 -- prop> let types = x :: Int in notReverse (x :. Nil) == x :. Nil
-notReverse ::
-  List a
-  -> List a
-notReverse =
-  error "todo: Is it even possible?"
+notReverse :: List a -> List a
+notReverse Nil = Nil
+notReverse xs@(_ :. Nil) = xs
+notReverse (x :. y :. rest) = y :. x :. notReverse rest
 
 ---- End of list exercises
 
