@@ -205,7 +205,6 @@ flattenAgain = flatMap id
 seqOptional :: List (Optional a) -> Optional (List a)
 seqOptional = foldRight ((A.<*>) . (A.<$>) (:.)) (Full Nil)
 
-
 -- | Find the first element in the list matching the predicate.
 --
 -- >>> find even (1 :. 3 :. 5 :. Nil)
@@ -271,16 +270,19 @@ produce f iv = iv :. produce f (f iv)
 -- | Do anything other than reverse a list.
 -- Is it even possible?
 --
--- >>> notReverse Nil
+-- #>>> notReverse Nil
 -- []
 --
--- prop> let types = x :: List Int in notReverse x ++ notReverse y == notReverse (y ++ x)
+-- #prop> let types = x :: List Int in notReverse x ++ notReverse y == notReverse (y ++ x)
 --
--- prop> let types = x :: Int in notReverse (x :. Nil) == x :. Nil
+-- #prop> let types = x :: Int in notReverse (x :. Nil) == x :. Nil
 notReverse :: List a -> List a
+notReverse = undefined -- Probably not possible... though I can't think of a good proof of such assertion.
+{-
 notReverse Nil = Nil
 notReverse xs@(_ :. Nil) = xs
 notReverse (x :. y :. rest) = y :. x :. notReverse rest
+-}
 
 ---- End of list exercises
 
@@ -446,17 +448,12 @@ unwords ::
 unwords =
   listh . P.unwords . hlist . map hlist
 
-listOptional ::
-  (a -> Optional b)
-  -> List a
-  -> List b
-listOptional _ Nil =
-  Nil
-listOptional f (h:.t) =
-  let r = listOptional f t
-  in case f h of
-       Empty -> r
-       Full q -> q :. r
+listOptional :: (a -> Optional b) -> List a -> List b
+listOptional _ Nil = Nil
+listOptional f (h:.t) = let r = listOptional f t in
+                          case f h of
+                          Empty -> r
+                          Full q -> q :. r
 
 any ::
   (a -> Bool)
