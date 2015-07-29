@@ -61,9 +61,7 @@ instance Functor List where
 -- Full 3
 instance Functor Optional where
   (<$>) :: (a -> b) -> Optional a -> Optional b
-  (<$>) = P.fmap
---  _ <$> Empty  = Empty
---  f <$> Full v = Full $ f v
+  (<$>) = mapOptional
 
 -- | Maps a function on the reader ((->) t) functor.
 --
