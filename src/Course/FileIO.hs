@@ -61,7 +61,8 @@ the contents of c
 
 -- /Tip:/ use @getArgs@ and @run@
 main :: IO ()
-main = getArgs >>= run . headOr (error "No arguments passed on command line!")
+main = run . headOr (error "No arguments passed on command line!")
+       =<< getArgs
 
 type FilePath = Chars
 
