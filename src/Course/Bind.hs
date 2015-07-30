@@ -61,7 +61,7 @@ infixr 1 =<<
 -- >>> ((*) <*> (+2)) 3
 -- 15
 (<*>) :: Bind f => f (a -> b) -> f a -> f b
-f <*> fa = (<$> f) . flip id =<< fa
+f <*> fa = (<$> fa) =<< f
 
 infixl 4 <*>
 
@@ -112,7 +112,7 @@ instance Bind ((->) t) where
 -- >>> join (+) 7
 -- 14
 join :: Bind f => f (f a) -> f a
-join c = id =<< c
+join = (id =<<)
 
 -- | Implement a flipped version of @(=<<)@, however, use only
 -- @join@ and @(<$>)@.
