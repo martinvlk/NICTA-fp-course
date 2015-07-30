@@ -89,7 +89,7 @@ instance Applicative ((->) t) where
 -- >>> sequence ((*10) :. (+2) :. Nil) 6
 -- [60,8]
 sequence :: Applicative f => List (f a) -> f (List a)
-sequence = foldRight ((<*>) . (<$>) (:.)) (pure Nil)
+sequence = foldRight (lift2 (:.)) $ pure Nil
 
 -- | Replicate an effect a given number of times.
 --
@@ -131,7 +131,8 @@ replicateA n = sequence . replicate n
 -- [[1,2,3],[1,2,3],[1,2,3],[1,2,3],[1,2,3],[1,2,3],[1,2,3],[1,2,3]]
 --
 filtering :: Applicative f => (a -> f Bool) -> List a -> f (List a)
-filtering p = (flatten<$>) . sequence . map (\a -> bool <$> pure Nil <*> pure (pure a) <*> p a)
+--filtering p = (flatten<$>) . sequence . map (\a -> bool <$> pure Nil <*> pure (pure a) <*> p a)
+filtering p = foldRight (\a -> lift2 (bool id (a:.)) $ p a) $ pure Nil
 
 -----------------------
 -- SUPPORT LIBRARIES --

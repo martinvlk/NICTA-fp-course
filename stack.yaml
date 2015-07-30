@@ -6,5 +6,5 @@ flags:
 packages:
 - '.'
 - projects/NetworkServer/haskell/
-extra-deps: []
+extra-deps: [goa-3.3]
 resolver: lts-2.17

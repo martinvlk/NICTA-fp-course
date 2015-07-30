@@ -40,7 +40,7 @@ instance Apply Id where
 -- [2,3,4,2,4,6]
 instance Apply List where
   (<*>) :: List (a -> b) -> List a -> List b
-  fs <*> as = listh [f a | f <- hlist fs, a <- hlist as]
+  fs <*> as = foldRight ((++) . flip map as) Nil fs
 
 -- | Implement @Apply@ instance for @Optional@.
 --

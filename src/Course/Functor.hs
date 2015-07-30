@@ -49,8 +49,7 @@ instance Functor Id where
 -- [2,3,4]
 instance Functor List where
   (<$>) :: (a -> b) -> List a -> List b
-  (<$>) = P.fmap
---  (<$>) = map
+  (<$>) = map
 
 -- | Maps a function on the Optional functor.
 --
@@ -69,7 +68,7 @@ instance Functor Optional where
 -- 17
 instance Functor ((->) t) where
   (<$>) :: (a -> b) -> ((->) t a) -> ((->) t b)
-  (<$>) = P.fmap
+  f <$> a = \t -> f (a t)
 
 -- | Anonymous map. Maps a constant value on a functor.
 --

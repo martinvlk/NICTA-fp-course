@@ -115,7 +115,7 @@ length = foldLeft (flip (const succ)) 0
 --
 -- prop> map id x == x
 map :: (a -> b) -> List a -> List b
-map f = foldRight (\x acc -> f x :. acc) Nil
+map f = foldRight ((:.) . f) Nil
 
 -- | Return elements satisfying the given predicate.
 --
