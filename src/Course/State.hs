@@ -126,8 +126,7 @@ findM p = foldRight (\a res -> p a >>= (\b -> if b then pure (Full a) else res))
 
 firstRepeat :: Ord a => List a -> Optional a
 firstRepeat xs = eval (findM p xs) S.empty
-  where p x = get
-              >>= (\s -> pure (x `S.member` s)
+  where p x = get >>= (\s -> pure (x `S.member` s)
               >>= (\b -> put (S.insert x s)
               >>= const (pure b)))
 
@@ -139,8 +138,7 @@ firstRepeat xs = eval (findM p xs) S.empty
 -- prop> distinct xs == distinct (flatMap (\x -> x :. x :. Nil) xs)
 distinct :: Ord a => List a -> List a
 distinct xs = listh . S.toList . exec (filtering p xs) $ S.empty
-  where p x = get
-              >>= (\s -> put (S.insert x s)
+  where p x = get >>= (\s -> put (S.insert x s)
               >>= const (pure True))
 
 -- | A happy number is a positive integer, where the sum of the square of its digits eventually reaches 1 after repetition.
@@ -165,5 +163,10 @@ distinct xs = listh . S.toList . exec (filtering p xs) $ S.empty
 -- >>> isHappy 44
 -- True
 isHappy :: Integer -> Bool
-isHappy =
-  error "todo: Course.State#isHappy"
+isHappy n = contains 1 rept
+  where rept = firstRepeat $ sums n
+        doSum = toInteger . sum . map square . digits
+        digits 0 = Nil
+        digits a = let (r, d) = a `divMod` 10 in d :. digits r
+        square = P.fromIntegral . join (*)
+        sums = produce doSum
