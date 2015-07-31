@@ -16,9 +16,6 @@ import Course.Bind
 import Course.Monad
 import qualified Data.Set as S
 
-import Data.Bool (bool)
-
-
 -- $setup
 -- >>> import Test.QuickCheck.Function
 -- >>> import Data.List(nub)
@@ -120,9 +117,19 @@ findM p = foldRight (\a res -> p a >>= (\b -> if b then pure (Full a) else res))
 --
 -- prop> case firstRepeat xs of Empty -> let xs' = hlist xs in nub xs' == xs'; Full x -> length (filter (== x) xs) > 1
 -- prop> case firstRepeat xs of Empty -> True; Full x -> let (l, (rx :. rs)) = span (/= x) xs in let (l2, r2) = span (/= x) rs in let l3 = hlist (l ++ (rx :. Nil) ++ l2) in nub l3 == l3
+--
+-- >>> let xs = (1 :. 2 :. 3 :. 3 :. 4 :. Nil) in firstRepeat xs
+-- Full 3
+--
+-- >>> let ys = (1 :. 2 :. 3 :. 4 :. Nil) in firstRepeat ys
+-- Empty
+
 firstRepeat :: Ord a => List a -> Optional a
-firstRepeat =
-  error "todo: Course.State#firstRepeat"
+firstRepeat xs = eval (findM p xs) S.empty
+  where p x = get
+              >>= (\s -> pure (x `S.member` s)
+              >>= (\b -> put (S.insert x s)
+              >>= const (pure b)))
 
 -- | Remove all duplicate elements in a `List`.
 -- /Tip:/ Use `filtering` and `State` with a @Data.Set#Set@.
@@ -130,12 +137,11 @@ firstRepeat =
 -- prop> firstRepeat (distinct xs) == Empty
 --
 -- prop> distinct xs == distinct (flatMap (\x -> x :. x :. Nil) xs)
-distinct ::
-  Ord a =>
-  List a
-  -> List a
-distinct =
-  error "todo: Course.State#distinct"
+distinct :: Ord a => List a -> List a
+distinct xs = listh . S.toList . exec (filtering p xs) $ S.empty
+  where p x = get
+              >>= (\s -> put (S.insert x s)
+              >>= const (pure True))
 
 -- | A happy number is a positive integer, where the sum of the square of its digits eventually reaches 1 after repetition.
 -- In contrast, a sad number (not a happy number) is where the sum of the square of its digits never reaches 1
@@ -158,8 +164,6 @@ distinct =
 --
 -- >>> isHappy 44
 -- True
-isHappy ::
-  Integer
-  -> Bool
+isHappy :: Integer -> Bool
 isHappy =
   error "todo: Course.State#isHappy"
