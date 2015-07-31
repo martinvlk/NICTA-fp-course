@@ -163,10 +163,8 @@ distinct xs = listh . S.toList . exec (filtering p xs) $ S.empty
 -- >>> isHappy 44
 -- True
 isHappy :: Integer -> Bool
-isHappy n = contains 1 rept
-  where rept = firstRepeat $ sums n
-        doSum = toInteger . sum . map square . digits
+isHappy = contains 1 . firstRepeat . sums
+  where sums = produce $ toInteger . sum . map square . digits
         digits 0 = Nil
         digits a = let (r, d) = a `divMod` 10 in d :. digits r
         square = P.fromIntegral . join (*)
-        sums = produce doSum
