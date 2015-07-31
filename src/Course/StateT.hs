@@ -27,9 +27,7 @@ import qualified Prelude as P
 -- | A `StateT` is a function from a state value `s` to a functor f of (a produced value `a`, and a resulting state `s`).
 newtype StateT s f a =
   StateT {
-    runStateT ::
-      s
-      -> f (a, s)
+    runStateT :: s -> f (a, s)
   }
 
 -- | Implement the `Functor` instance for @StateT s f@ given a @Functor f@.
@@ -37,12 +35,8 @@ newtype StateT s f a =
 -- >>> runStateT ((+1) <$> (pure 2) :: StateT Int List Int) 0
 -- [(3,0)]
 instance Functor f => Functor (StateT s f) where
-  (<$>) ::
-    (a -> b)
-    -> StateT s f a
-    -> StateT s f b
-  (<$>) =
-    error "todo: Course.StateT (<$>)#instance (StateT s f)"
+  (<$>) :: (a -> b) -> StateT s f a -> StateT s f b
+  f <$> a = StateT $ (first f <$>) . runStateT a
 
 -- | Implement the `Apply` instance for @StateT s f@ given a @Bind f@.
 --
@@ -56,12 +50,8 @@ instance Functor f => Functor (StateT s f) where
 -- >>> runStateT (StateT (\s -> ((+2), s P.++ [1]) :. ((+3), s P.++ [1]) :. Nil) <*> (StateT (\s -> (2, s P.++ [2]) :. Nil))) [0]
 -- [(4,[0,1,2]),(5,[0,1,2])]
 instance Bind f => Apply (StateT s f) where
-  (<*>) ::
-    StateT s f (a -> b)
-    -> StateT s f a
-    -> StateT s f b
-  (<*>) =
-    error "todo: Course.StateT (<*>)#instance (StateT s f)"
+  (<*>) :: StateT s f (a -> b) -> StateT s f a -> StateT s f b
+  s1 <*> s2 = StateT $ (uncurry (runStateT . (<$> s2)) =<<) . runStateT s1
 
 -- | Implement the `Applicative` instance for @StateT s f@ given a @Applicative f@.
 --
@@ -71,11 +61,8 @@ instance Bind f => Apply (StateT s f) where
 -- >>> runStateT ((pure 2) :: StateT Int List Int) 0
 -- [(2,0)]
 instance Monad f => Applicative (StateT s f) where
-  pure ::
-    a
-    -> StateT s f a
-  pure =
-    error "todo: Course.StateT pure#instance (StateT s f)"
+  pure :: a -> StateT s f a
+  pure a = StateT $ pure . (,) a
 
 -- | Implement the `Bind` instance for @StateT s f@ given a @Monad f@.
 -- Make sure the state value is passed through in `bind`.
@@ -83,18 +70,13 @@ instance Monad f => Applicative (StateT s f) where
 -- >>> runStateT ((const $ putT 2) =<< putT 1) 0
 -- ((),2)
 instance Monad f => Bind (StateT s f) where
-  (=<<) ::
-    (a -> StateT s f b)
-    -> StateT s f a
-    -> StateT s f b
-  (=<<) =
-    error "todo: Course.StateT (=<<)#instance (StateT s f)"
+  (=<<) :: (a -> StateT s f b) -> StateT s f a -> StateT s f b
+  f =<< a = StateT $ (uncurry (runStateT . f) =<<) . runStateT a
 
 instance Monad f => Monad (StateT s f) where
 
 -- | A `State'` is `StateT` specialised to the `Id` functor.
-type State' s a =
-  StateT s Id a
+type State' s a = StateT s Id a
 
 -- | Provide a constructor for `State'` values
 --
