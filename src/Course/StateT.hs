@@ -178,8 +178,8 @@ instance Functor f => Functor (OptionalT f) where
 -- >>> runOptionalT $ (OptionalT . Id . Full $ (+1)) <*> (OptionalT . Id  $ Empty)
 -- Id Empty
 instance Apply f => Apply (OptionalT f) where
---  g <*> a = OptionalT $ lift2 (<*>) (runOptionalT g) (runOptionalT a)
- (<*>) = OptionalT $ on (lift2 (<*>)) runOptionalT
+  g <*> a = OptionalT $ lift2 (<*>) (runOptionalT g) (runOptionalT a)
+
 -- | Implement the `Applicative` instance for `OptionalT f` given a Applicative f.
 instance Applicative f => Applicative (OptionalT f) where
   pure a = OptionalT $ pure $ Full a
@@ -188,16 +188,21 @@ instance Applicative f => Applicative (OptionalT f) where
 --
 -- >>> runOptionalT $ (\a -> OptionalT (Full (a+1) :. Full (a+2) :. Nil)) =<< OptionalT (Full 1 :. Empty :. Nil)
 -- [Full 2,Full 3,Empty]
+--
+-- >>> runOptionalT $ (\a -> OptionalT (Id (Full (a+1)))) =<< OptionalT (Id (Full 1))
+-- Id (Full 2)
+--
+-- >>> runOptionalT $ (\a -> OptionalT (Id (Full (a+1)))) =<< OptionalT (Id Empty)
+-- Id Empty
 instance Monad f => Bind (OptionalT f) where
-  (=<<) =
-    error "todo: Course.StateT (=<<)#instance (OptionalT f)"
+  g =<< a = OptionalT $ runOptionalT a >>=
+            (\oa -> case oa of Empty   -> pure Empty
+                               Full a' -> (runOptionalT . g) a')
 
 instance Monad f => Monad (OptionalT f) where
 
 -- | A `Logger` is a pair of a list of log values (`[l]`) and an arbitrary value (`a`).
-data Logger l a =
-  Logger (List l) a
-  deriving (Eq, Show)
+data Logger l a = Logger (List l) a deriving (Eq, Show)
 
 -- | Implement the `Functor` instance for `Logger
 --

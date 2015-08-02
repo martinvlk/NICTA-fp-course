@@ -71,7 +71,7 @@ infixl 4 <*>
 -- Id 3
 instance Bind Id where
   (=<<) :: (a -> Id b) -> Id a -> Id b
-  f =<< (Id a) = f a
+  f =<< a = f $ runId a
 
 -- | Binds a function on a List.
 --
@@ -87,8 +87,7 @@ instance Bind List where
 -- Full 14
 instance Bind Optional where
   (=<<) :: (a -> Optional b) -> Optional a -> Optional b
-  _ =<< Empty = Empty
-  f =<< (Full a) = f a
+  (=<<) = bindOptional
 
 -- | Binds a function on the reader ((->) t).
 --
