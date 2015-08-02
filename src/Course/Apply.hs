@@ -32,7 +32,7 @@ infixl 4 <*>
 -- Id 18
 instance Apply Id where
   (<*>) :: Id (a -> b) -> Id a -> Id b
-  (Id f) <*> a = f <$> a
+  f <*> a = runId f <$> a
 
 -- | Implement @Apply@ instance for @List@.
 --

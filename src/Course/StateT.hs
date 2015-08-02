@@ -153,15 +153,10 @@ distinctF xs = listh . S.toList <$> execT (filtering p xs) S.empty
                         >>= const (pure True))
               else StateT $ const Empty
 
-{-
-s -> (List a, Set a)
--}
-
 -- | An `OptionalT` is a functor of an `Optional` value.
 data OptionalT f a =
   OptionalT {
-    runOptionalT ::
-      f (Optional a)
+    runOptionalT :: f (Optional a)
   }
 
 -- | Implement the `Functor` instance for `OptionalT f` given a Functor f.
@@ -169,21 +164,25 @@ data OptionalT f a =
 -- >>> runOptionalT $ (+1) <$> OptionalT (Full 1 :. Empty :. Nil)
 -- [Full 2,Empty]
 instance Functor f => Functor (OptionalT f) where
-  (<$>) =
-    error "todo: Course.StateT (<$>)#instance (OptionalT f)"
+  (<$>) :: (a -> b) -> OptionalT f a -> OptionalT f b
+  f <$> a = OptionalT $ (f <$>) <$> runOptionalT a
 
 -- | Implement the `Apply` instance for `OptionalT f` given a Apply f.
 --
 -- >>> runOptionalT $ OptionalT (Full (+1) :. Full (+2) :. Nil) <*> OptionalT (Full 1 :. Empty :. Nil)
 -- [Full 2,Empty,Full 3,Empty]
+--
+-- >>> runOptionalT $ (OptionalT . Id . Full $ (+1)) <*> (OptionalT . Id  . Full $ 1)
+-- Id (Full 2)
+--
+-- >>> runOptionalT $ (OptionalT . Id . Full $ (+1)) <*> (OptionalT . Id  $ Empty)
+-- Id Empty
 instance Apply f => Apply (OptionalT f) where
-  (<*>) =
-    error "todo: Course.StateT (<*>)#instance (OptionalT f)"
-
+--  g <*> a = OptionalT $ lift2 (<*>) (runOptionalT g) (runOptionalT a)
+ (<*>) = OptionalT $ on (lift2 (<*>)) runOptionalT
 -- | Implement the `Applicative` instance for `OptionalT f` given a Applicative f.
 instance Applicative f => Applicative (OptionalT f) where
-  pure =
-    error "todo: Course.StateT pure#instance (OptionalT f)"
+  pure a = OptionalT $ pure $ Full a
 
 -- | Implement the `Bind` instance for `OptionalT f` given a Monad f.
 --
