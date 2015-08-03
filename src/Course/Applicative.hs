@@ -131,8 +131,12 @@ replicateA n = sequence . replicate n
 -- [[1,2,3],[1,2,3],[1,2,3],[1,2,3],[1,2,3],[1,2,3],[1,2,3],[1,2,3]]
 --
 filtering :: Applicative f => (a -> f Bool) -> List a -> f (List a)
---filtering p = (flatten<$>) . sequence . map (\a -> bool <$> pure Nil <*> pure (pure a) <*> p a)
-filtering p = foldRight (\a -> lift2 (bool id (a:.)) $ p a) $ pure Nil
+filtering pLifted = foldRight stepLifted baseLifted
+  where baseLifted   = pure Nil
+        stepLifted a = lift2 step (pLifted a)
+          where step p acc = if p
+                             then a :. acc
+                             else acc
 
 -----------------------
 -- SUPPORT LIBRARIES --
