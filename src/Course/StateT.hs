@@ -51,7 +51,7 @@ instance Functor f => Functor (StateT s f) where
 -- [(4,[0,1,2]),(5,[0,1,2])]
 instance Bind f => Apply (StateT s f) where
   (<*>) :: StateT s f (a -> b) -> StateT s f a -> StateT s f b
-  s1 <*> s2 = StateT $ (uncurry (runStateT . (<$> s2)) =<<) . runStateT s1
+  sf <*> s2 = StateT $ (uncurry (runStateT . (<$> s2)) =<<) . runStateT sf
 
 -- | Implement the `Applicative` instance for @StateT s f@ given a @Applicative f@.
 --
@@ -148,10 +148,9 @@ distinct' xs = listh . S.toList . exec' (filtering p xs) $ S.empty
 -- Empty
 distinctF :: (Ord a, Num a) => List a -> Optional (List a)
 distinctF xs = listh . S.toList <$> execT (filtering p xs) S.empty
-  where p x = if x <= 100
-              then getT >>= (\s -> putT (S.insert x s)
-                        >>= const (pure True))
-              else StateT $ const Empty
+  where p x | x <= 100 = getT >>= (\s -> putT (S.insert x s)
+                              >>= const (pure True))
+            | otherwise = StateT $ const Empty
 
 -- | An `OptionalT` is a functor of an `Optional` value.
 data OptionalT f a =
@@ -257,5 +256,19 @@ log1 l = Logger (pure l)
 --
 -- >>> distinctG $ listh [1,2,3,2,6,106]
 -- Logger ["even number: 2","even number: 2","even number: 6","aborting > 100: 106"] Empty
-distinctG :: (Integral a, Show a) => List a -> Logger Chars (Optional (List a))
-distinctG = undefined
+distinctG :: (Integral a, Show a) =>
+             List a -> Logger Chars (Optional (List a))
+distinctG xs = pro <$> execT (filtering p xs) (OptionalT (log1 (Nil::Chars) (Full S.empty)))
+  where pro v = let (Logger _ v') = runOptionalT v
+                in  (listh . S.toList) <$> v'
+        p x | x > 100   = getT >>= logAbort "aborting > 100: TODO value"
+                               >>= const (pure False)
+            | even x    = getT >>= logOk "even number: TODO value"
+                               >>= upd (S.insert x)
+                               >>= const (pure True)
+            | otherwise = getT >>= upd (S.insert x)
+                               >>= const (pure True)
+        logOk msg opt = pure $ OptionalT $ log1 msg id <*> getL opt
+        logAbort msg opt = pure $ OptionalT $ log1 msg (const Empty) <*> getL opt
+        upd f opt = pure $ OptionalT $ (\os -> f <$> os) <$> getL opt
+        getL opt = runOptionalT opt
