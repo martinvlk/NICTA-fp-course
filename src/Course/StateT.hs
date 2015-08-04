@@ -131,9 +131,10 @@ putT s = StateT $ const $ pure ((), s)
 --
 -- prop> distinct' xs == distinct' (flatMap (\x -> x :. x :. Nil) xs)
 distinct' :: (Ord a, Num a) => List a -> List a
-distinct' xs = listh . S.toList . exec' (filtering p xs) $ S.empty
-  where p x = getT >>= (\s -> putT (S.insert x s)
-              >>= const (pure True))
+distinct' xs = eval' (filtering p xs) S.empty
+  where p x = getT >>= (\s -> pure (x `S.member` s) >>=
+                              (\there -> putT (S.insert x s) >>=
+                                         const (pure $ not there)))
 
 -- | Remove all duplicate elements in a `List`.
 -- However, if you see a value greater than `100` in the list,
@@ -147,9 +148,11 @@ distinct' xs = listh . S.toList . exec' (filtering p xs) $ S.empty
 -- >>> distinctF $ listh [1,2,3,2,1,101]
 -- Empty
 distinctF :: (Ord a, Num a) => List a -> Optional (List a)
-distinctF xs = listh . S.toList <$> execT (filtering p xs) S.empty
-  where p x | x <= 100 = getT >>= (\s -> putT (S.insert x s)
-                              >>= const (pure True))
+distinctF xs = evalT (filtering p xs) S.empty
+  where p x | x <= 100 =
+              getT >>= (\s -> pure (x `S.member` s) >>=
+                              (\there -> putT (S.insert x s) >>=
+                                     const (pure $ not there)))
             | otherwise = StateT $ const Empty
 
 -- | An `OptionalT` is a functor of an `Optional` value.
@@ -258,17 +261,19 @@ log1 l = Logger (pure l)
 -- Logger ["even number: 2","even number: 2","even number: 6","aborting > 100: 106"] Empty
 distinctG :: (Integral a, Show a) =>
              List a -> Logger Chars (Optional (List a))
-distinctG xs = pro <$> execT (filtering p xs) (OptionalT (log1 (Nil::Chars) (Full S.empty)))
-  where pro v = let (Logger _ v') = runOptionalT v
-                in  (listh . S.toList) <$> v'
-        p x | x > 100   = getT >>= logAbort "aborting > 100: TODO value"
-                               >>= const (pure False)
-            | even x    = getT >>= logOk "even number: TODO value"
-                               >>= upd (S.insert x)
-                               >>= const (pure True)
-            | otherwise = getT >>= upd (S.insert x)
-                               >>= const (pure True)
-        logOk msg opt = pure $ OptionalT $ log1 msg id <*> getL opt
-        logAbort msg opt = pure $ OptionalT $ log1 msg (const Empty) <*> getL opt
-        upd f opt = pure $ OptionalT $ (\os -> f <$> os) <$> getL opt
-        getL opt = runOptionalT opt
+distinctG xs = set2list <$> execT (filtering predic xs) baseState
+  where baseState = OptionalT $ log1 Nil $ pure S.empty
+        set2list v = let (Logger _ v') = runOptionalT v
+                     in  (listh . S.toList) <$> v'
+        predic x | x > 100   = getT >>= logAbort "aborting > 100: " x >>=
+                               ret False
+                 | even x    = getT >>= logOk "even number: " x >>=
+                               upd (S.insert x) >>= ret True
+                 | otherwise = getT >>= upd (S.insert x) >>= ret True
+        logOk msg v = logIt msg v id
+        logAbort msg v = logIt msg v (const Empty)
+        logIt msg el f opt = let v = OptionalT . (log1 (msg ++ show' el) f <*>) . getL $ opt
+                             in putT v >> pure v
+        upd f = putT . OptionalT . ((f <$>) <$>) . getL
+        getL = runOptionalT
+        ret = const . pure
