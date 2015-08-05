@@ -261,19 +261,37 @@ log1 l = Logger (pure l)
 -- Logger ["even number: 2","even number: 2","even number: 6","aborting > 100: 106"] Empty
 distinctG :: (Integral a, Show a) =>
              List a -> Logger Chars (Optional (List a))
-distinctG xs = set2list <$> execT (filtering predic xs) baseState
-  where baseState = OptionalT $ log1 Nil $ pure S.empty
-        set2list v = let (Logger _ v') = runOptionalT v
-                     in  (listh . S.toList) <$> v'
+distinctG xs = getR $ runStateT (filtering predic xs) baseState
+  where baseState = OptionalT $ Logger Nil (Full S.empty)
+
+        getR :: (Integral a, Show a) =>
+                Logger Chars (List a, OptionalT (Logger (List Chars)) (S.Set a))
+             -> Logger Chars (Optional (List a))
+        getR (Logger _ (res, s)) = let (Logger l' v') = runOptionalT s
+                                   in Logger (flatten $ reverse l') (const res <$> v')
+
+        predic :: (Integral a, Show a) =>
+                  a -> StateT (OptionalT (Logger (List Chars)) (S.Set a)) (Logger Chars) Bool
         predic x | x > 100   = getT >>= logAbort "aborting > 100: " x >>=
-                               ret False
-                 | even x    = getT >>= logOk "even number: " x >>=
-                               upd (S.insert x) >>= ret True
-                 | otherwise = getT >>= upd (S.insert x) >>= ret True
+                               ret (pure False)
+                 | even x    = getT >>=
+                               logOk "even number: " x >>=
+                               (\o -> uniq x o >>=
+                                      (\b -> upd x o >>=
+                                             ret b))
+                 | otherwise = getT >>=
+                               (\o -> uniq x o >>=
+                                      (\b -> upd x o >>=
+                                             ret b))
+
         logOk msg v = logIt msg v id
         logAbort msg v = logIt msg v (const Empty)
-        logIt msg el f opt = let v = OptionalT . (log1 (msg ++ show' el) f <*>) . getL $ opt
-                             in putT v >> pure v
-        upd f = putT . OptionalT . ((f <$>) <$>) . getL
+        logIt msg el f opt = let newl = log1 ((msg ++ show' el):.Nil) f
+                                 news = OptionalT . (newl <*>) . getL $ opt
+                             in putT news >> getT
+        uniq v = pure . inside (not . (v `S.member`))
+        upd  v = putT . inside (S.insert v)
         getL = runOptionalT
-        ret = const . pure
+        inside f = OptionalT . ((f <$>) <$>) . getL
+        ret v _ = let (Logger _ b) = getL v
+                  in pure $ contains True b
