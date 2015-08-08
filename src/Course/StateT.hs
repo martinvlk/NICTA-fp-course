@@ -19,6 +19,8 @@ import Course.State
 import qualified Data.Set as S
 import qualified Prelude as P
 
+import Debug.Trace (trace)
+
 -- $setup
 -- >>> import Test.QuickCheck
 -- >>> import qualified Prelude as P(fmap)
@@ -149,11 +151,12 @@ distinct' xs = eval' (filtering p xs) S.empty
 -- Empty
 distinctF :: (Ord a, Num a) => List a -> Optional (List a)
 distinctF xs = evalT (filtering p xs) S.empty
-  where p x | x <= 100 =
-              getT >>= (\s -> pure (x `S.member` s) >>=
-                              (\there -> putT (S.insert x s) >>=
-                                     const (pure $ not there)))
-            | otherwise = StateT $ const Empty
+  where  p :: (Num a, Ord a) => a -> StateT (S.Set a) Optional Bool
+         p x | x <= 100 =
+               getT >>= (\s -> pure (x `S.member` s) >>=
+                               (\there -> putT (S.insert x s) >>=
+                                          const (pure $ not there)))
+             | otherwise = StateT $ const Empty
 
 -- | An `OptionalT` is a functor of an `Optional` value.
 data OptionalT f a =
@@ -261,37 +264,14 @@ log1 l = Logger (pure l)
 -- Logger ["even number: 2","even number: 2","even number: 6","aborting > 100: 106"] Empty
 distinctG :: (Integral a, Show a) =>
              List a -> Logger Chars (Optional (List a))
-distinctG xs = getR $ runStateT (filtering predic xs) baseState
-  where baseState = OptionalT $ Logger Nil (Full S.empty)
-
-        getR :: (Integral a, Show a) =>
-                Logger Chars (List a, OptionalT (Logger (List Chars)) (S.Set a))
-             -> Logger Chars (Optional (List a))
-        getR (Logger _ (res, s)) = let (Logger l' v') = runOptionalT s
-                                   in Logger (flatten $ reverse l') (const res <$> v')
-
-        predic :: (Integral a, Show a) =>
-                  a -> StateT (OptionalT (Logger (List Chars)) (S.Set a)) (Logger Chars) Bool
-        predic x | x > 100   = getT >>= logAbort "aborting > 100: " x >>=
-                               ret (pure False)
-                 | even x    = getT >>=
-                               logOk "even number: " x >>=
-                               (\o -> uniq x o >>=
-                                      (\b -> upd x o >>=
-                                             ret b))
-                 | otherwise = getT >>=
-                               (\o -> uniq x o >>=
-                                      (\b -> upd x o >>=
-                                             ret b))
-
-        logOk msg v = logIt msg v id
-        logAbort msg v = logIt msg v (const Empty)
-        logIt msg el f opt = let newl = log1 ((msg ++ show' el):.Nil) f
-                                 news = OptionalT . (newl <*>) . getL $ opt
-                             in putT news >> getT
-        uniq v = pure . inside (not . (v `S.member`))
-        upd  v = putT . inside (S.insert v)
-        getL = runOptionalT
-        inside f = OptionalT . ((f <$>) <$>) . getL
-        ret v _ = let (Logger _ b) = getL v
-                  in pure $ contains True b
+distinctG x = runOptionalT $ evalT (filtering p x) S.empty
+  where p :: (Integral a, Ord a, Show a, IsString l) =>
+             a -> StateT (S.Set a) (OptionalT (Logger l)) Bool
+        p a = StateT $ \s -> OptionalT $ if a > 100
+                                         then logAbort
+                                         else process s
+          where logAbort  = log1 (msg "aborting > 100: ") Empty
+                logEven   = log1 (msg "even number: ")
+                msg     m = fromString $ m P.++ show a
+                process s = (if even a then logEven else pure) $
+                            Full (a `S.notMember` s, a `S.insert` s)
