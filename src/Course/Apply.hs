@@ -19,10 +19,7 @@ import qualified Prelude as P
 --   `∀a b c. ((.) <$> a <*> b <*> c) ≅ (a <*> (b <*> c))`
 class Functor f => Apply f where
   -- Pronounced apply.
-  (<*>) ::
-    f (a -> b)
-    -> f a
-    -> f b
+  (<*>) :: f (a -> b) -> f a -> f b
 
 infixl 4 <*>
 
