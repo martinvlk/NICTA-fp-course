@@ -30,7 +30,7 @@ instance (Functor f, Functor g) => Functor (Compose f g) where
 -- >>> pure (+1) <*> Compose [[1]] 
 -- Compose [[2]]
 instance (Apply f, Apply g) => Apply (Compose f g) where
-  (Compose f) <*> (Compose a) = Compose $ ((<*>) <$> f) <*> a
+  (Compose f) <*> (Compose a) = Compose $ lift2 (<*>) f a
 
 instance (Applicative f, Applicative g) => Applicative (Compose f g) where
 -- Implement the pure function for an Applicative instance for Compose
