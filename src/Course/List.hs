@@ -358,19 +358,11 @@ isEmpty Nil =
 isEmpty (_:._) =
   False
 
-span ::
-  (a -> Bool)
-  -> List a
-  -> (List a, List a)
-span p x =
-  (takeWhile p x, dropWhile p x)
+span :: (a -> Bool) -> List a -> (List a, List a)
+span p x = (takeWhile p x, dropWhile p x)
 
-break ::
-  (a -> Bool)
-  -> List a
-  -> (List a, List a)
-break p =
-  span (not . p)
+break :: (a -> Bool) -> List a -> (List a, List a)
+break p = span (not . p)
 
 dropWhile ::
   (a -> Bool)

@@ -40,7 +40,7 @@ class Functor t => Traversable t where
 -- The law of naturality
 -- >>> (f <$>) <$> (traverse (Id . g) xs)
 -- Id [3,4,5]
--- >>> traverse (Id . f . g) xs 
+-- >>> traverse (Id . f . g) xs
 -- Id [3,4,5]
 --
 -- The law of composition
