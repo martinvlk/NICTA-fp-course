@@ -62,20 +62,15 @@ unexpectedCharParser c =
 --
 -- >>> parse (valueParser 3) "abc"
 -- Result >abc< 3
-valueParser ::
-  a
-  -> Parser a
-valueParser =
-  error "todo: Course.Parser#valueParser"
+valueParser :: a -> Parser a
+valueParser x = P (\i -> Result i x)
 
 -- | Return a parser that always fails with the given error.
 --
 -- >>> isErrorResult (parse failed "abc")
 -- True
-failed ::
-  Parser a
-failed =
-  error "todo: Course.Parser#failed"
+failed :: Parser a
+failed = P (\_ -> ErrorResult Failed)
 
 -- | Return a parser that succeeds with a character off the input or fails with an error if the input is empty.
 --
@@ -84,10 +79,10 @@ failed =
 --
 -- >>> isErrorResult (parse character "")
 -- True
-character ::
-  Parser Char
-character =
-  error "todo: Course.Parser#character"
+character :: Parser Char
+character = P ch
+  where ch Nil     = ErrorResult UnexpectedEof
+        ch (x:.xs) = Result xs x
 
 -- | Return a parser that maps any succeeding result with the given function.
 --
@@ -96,21 +91,15 @@ character =
 --
 -- >>> parse (mapParser (+10) (valueParser 7)) ""
 -- Result >< 17
-mapParser ::
-  (a -> b)
-  -> Parser a
-  -> Parser b
-mapParser =
-  error "todo: Course.Parser#mapParser"
+mapParser :: (a -> b) -> Parser a -> Parser b
+mapParser f p = P (\i -> case parse p i of
+                     Result i' r -> Result i' (f r)
+                     ErrorResult e -> ErrorResult e)
 
 -- | This is @mapParser@ with the arguments flipped.
 -- It might be more helpful to use this function if you prefer this argument order.
-flmapParser ::
-  Parser a
-  -> (a -> b)
-  -> Parser b
-flmapParser =
-  flip mapParser
+flmapParser :: Parser a -> (a -> b) -> Parser b
+flmapParser = flip mapParser
 
 -- | Return a parser that puts its input into the given parser and
 --
@@ -133,10 +122,7 @@ flmapParser =
 --
 -- >>> isErrorResult (parse (bindParser (\c -> if c == 'x' then character else valueParser 'v') character) "x")
 -- True
-bindParser ::
-  (a -> Parser b)
-  -> Parser a
-  -> Parser b
+bindParser :: (a -> Parser b) -> Parser a -> Parser b
 bindParser =
   error "todo: Course.Parser#bindParser"
 
