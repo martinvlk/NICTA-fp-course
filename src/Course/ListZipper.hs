@@ -562,7 +562,6 @@ instance Applicative MaybeListZipper where
 -- >>> id <<= (zipper [2,1] 3 [4,5])
 -- [[1] >2< [3,4,5],[] >1< [2,3,4,5]] >[2,1] >3< [4,5]< [[3,2,1] >4< [5],[4,3,2,1] >5< []]
 instance Extend ListZipper where
-  (<<=) :: (ListZipper a -> b) -> ListZipper a -> ListZipper b
   f <<= lz = ListZipper (go moveLeft) (f lz) (go moveRight)
     where go walk = unfoldr (\lza -> case walk lza of
                                IsZ lz' -> Full (f lz', lz')
@@ -578,7 +577,6 @@ instance Extend ListZipper where
 -- >>> id <<= (IsZ (zipper [2,1] 3 [4,5]))
 -- [[1] >2< [3,4,5],[] >1< [2,3,4,5]] >[2,1] >3< [4,5]< [[3,2,1] >4< [5],[4,3,2,1] >5< []]
 instance Extend MaybeListZipper where
-  (<<=) :: (MaybeListZipper a -> b) -> MaybeListZipper a -> MaybeListZipper b
   f <<= mlz = case mlz of
     IsZ lz -> IsZ $ (f . IsZ) <<= lz
     IsNotZ -> IsNotZ
@@ -601,7 +599,6 @@ instance Comonad ListZipper where
 -- >>> traverse id (zipper [Full 1, Full 2, Full 3] (Full 4) [Empty, Full 6, Full 7])
 -- Empty
 instance Traversable ListZipper where
-  traverse :: Applicative f => (a -> f b) -> ListZipper a -> f (ListZipper b)
   traverse g (ListZipper ls z rs) =
     ListZipper <$> traverse g ls <*> g z <*> traverse g rs
 
@@ -615,7 +612,6 @@ instance Traversable ListZipper where
 -- >>> traverse id (IsZ (zipper [Full 1, Full 2, Full 3] (Full 4) [Full 5, Full 6, Full 7]))
 -- Full [1,2,3] >4< [5,6,7]
 instance Traversable MaybeListZipper where
-  traverse :: Applicative f => (a -> f b) -> MaybeListZipper a -> f (MaybeListZipper b)
   traverse _ IsNotZ = pure IsNotZ
   traverse g (IsZ lz) = IsZ <$> traverse g lz
 
