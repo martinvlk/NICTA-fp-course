@@ -397,24 +397,14 @@ zip ::
 zip =
   zipWith (,)
 
-zipWith ::
-  (a -> b -> c)
-  -> List a
-  -> List b
-  -> List c
-zipWith f (a:.as) (b:.bs) =
-  f a b :. zipWith f as bs
-zipWith _ _  _ =
-  Nil
+zipWith :: (a -> b -> c) -> List a -> List b -> List c
+zipWith f (a:.as) (b:.bs) = f a b :. zipWith f as bs
+zipWith _ _  _ = Nil
 
-unfoldr ::
-  (a -> Optional (b, a))
-  -> a
-  -> List b
-unfoldr f b  =
-  case f b of
-    Full (a, z) -> a :. unfoldr f z
-    Empty -> Nil
+unfoldr :: (a -> Optional (b, a)) -> a -> List b
+unfoldr f a  = case f a
+               of Full (a', z) -> a' :. unfoldr f z
+                  Empty        -> Nil
 
 lines ::
   Chars
