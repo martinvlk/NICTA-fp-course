@@ -63,7 +63,7 @@ unexpectedCharParser c =
 -- >>> parse (valueParser 3) "abc"
 -- Result >abc< 3
 valueParser :: a -> Parser a
-valueParser x = P (\i -> Result i x)
+valueParser x = P (`Result` x)
 
 -- | Return a parser that always fails with the given error.
 --
@@ -149,7 +149,7 @@ flbindParser = flip bindParser
 -- >>> isErrorResult (parse (character >>> valueParser 'v') "")
 -- True
 (>>>) :: Parser a -> Parser b -> Parser b
-pa >>> pb = pa >>= (const pb)
+pa >>> pb = pa >>= const pb
 
 -- | Return a parser that tries the first parser for a successful value.
 --
@@ -539,8 +539,8 @@ instance Functor Parser where
 -- /Tip:/ Use @bindParser@ and @valueParser@.
 instance Apply Parser where
   (<*>) :: Parser (a -> b) -> Parser a -> Parser b
-  f <*> p = do r <- p
-               f' <- f
+  f <*> p = do f' <- f
+               r <- p
                pure $ f' r
 
 -- | Write an Applicative functor instance for a @Parser@.
