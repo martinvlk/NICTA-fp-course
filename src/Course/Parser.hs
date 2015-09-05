@@ -197,7 +197,7 @@ infixl 3 |||
 -- >>> parse (list (character *> valueParser 'v')) ""
 -- Result >< ""
 list :: Parser a -> Parser (List a)
-list p = list1 p ||| valueParser Nil
+list p = list1 p ||| pure Nil
 
 -- | Return a parser that produces at least one value from the given parser then
 -- continues producing a list of values from the given parser (to ultimately produce a non-empty list).
@@ -215,7 +215,7 @@ list p = list1 p ||| valueParser Nil
 list1 :: Parser a -> Parser (List a)
 list1 p = do r <- p
              lr <- list p
-             valueParser $ r :. lr
+             pure $ r :. lr
 
 -- | Return a parser that produces a character but fails if
 --
@@ -231,9 +231,9 @@ list1 p = do r <- p
 -- >>> isErrorResult (parse (satisfy isUpper) "abc")
 -- True
 satisfy :: (Char -> Bool) -> Parser Char
-satisfy f = bindParser (\r -> if f r
-                              then valueParser r
-                              else failed) character
+satisfy p = do c <- character
+               if p c then pure c
+                      else failed
 
 -- | Return a parser that produces the given character but fails if
 --
@@ -275,9 +275,10 @@ digit = satisfy isDigit
 -- >>> isErrorResult (parse natural "")
 -- True
 natural :: Parser Int
-natural = bindParser (\r -> case read r of
-                        Full n -> valueParser n
-                        Empty -> failed) $ list1 digit
+natural = do r <- list1 digit
+             case read r of
+               Full n -> pure n
+               Empty -> failed
 
 --
 -- | Return a parser that produces a space character but fails if
@@ -346,7 +347,7 @@ sequenceParser :: List (Parser a) -> Parser (List a)
 sequenceParser = foldRight oneStep (valueParser Nil)
   where oneStep p a = do r <- p
                          rest <- a
-                         valueParser $ r :. rest
+                         pure $ r :. rest
 
 -- | Return a parser that produces the given number of values off the given parser.
 -- This parser fails if the given parser fails in the attempt to produce the given number of values.
@@ -389,10 +390,9 @@ ageParser = natural
 -- >>> isErrorResult (parse firstNameParser "abc")
 -- True
 firstNameParser :: Parser Chars
-firstNameParser = do
-  u <- upper
-  rest <- list lower
-  valueParser $ u :. rest
+firstNameParser = do u <- upper
+                     rest <- list lower
+                     pure $ u :. rest
 
 -- | Write a parser for Person.surname.
 --
@@ -412,7 +412,7 @@ surnameParser :: Parser Chars
 surnameParser = do u <- upper
                    fv <- thisMany 5 lower
                    rest <- list lower
-                   valueParser $ (u :. fv) ++ rest
+                   pure $ (u :. fv) ++ rest
 
 -- | Write a parser for Person.smoker.
 --
@@ -469,11 +469,10 @@ phoneBodyParser = list (digit ||| is '-' ||| is '.')
 -- >>> isErrorResult (parse phoneParser "a123-456")
 -- True
 phoneParser :: Parser Chars
-phoneParser = do
-  d <- digit
-  bdy <- phoneBodyParser
-  is '#'
-  valueParser $ d :. bdy
+phoneParser = do d <- digit
+                 bdy <- phoneBodyParser
+                 is '#'
+                 pure $ d :. bdy
 
 -- | Write a parser for Person.
 --
@@ -520,13 +519,12 @@ phoneParser = do
 -- >>> parse personParser "123 Fred Clarkson y 123-456.789# rest"
 -- Result > rest< Person {age = 123, firstName = "Fred", surname = "Clarkson", smoker = 'y', phone = "123-456.789"}
 personParser :: Parser Person
-personParser = do
-  ag <- ageParser
-  fnm <- spaces1 >>> firstNameParser
-  snm <- spaces1 >>> surnameParser
-  smk <- spaces1 >>> smokerParser
-  phn <- spaces1 >>> phoneParser
-  valueParser $ Person ag fnm snm smk phn
+personParser = do ag <- ageParser
+                  fnm <- spaces1 >>> firstNameParser
+                  snm <- spaces1 >>> surnameParser
+                  smk <- spaces1 >>> smokerParser
+                  phn <- spaces1 >>> phoneParser
+                  pure $ Person ag fnm snm smk phn
 
 -- Make sure all the tests pass!
 
@@ -535,13 +533,15 @@ personParser = do
 -- /Tip:/ Use @bindParser@ and @valueParser@.
 instance Functor Parser where
   (<$>) :: (a -> b) -> Parser a -> Parser b
-  f <$> p = p `flbindParser` (\r -> valueParser $ f r)
+  f <$> p = p `flbindParser` (pure . f)
 
 -- | Write a Apply instance for a @Parser@.
 -- /Tip:/ Use @bindParser@ and @valueParser@.
 instance Apply Parser where
   (<*>) :: Parser (a -> b) -> Parser a -> Parser b
-  f <*> p = p >>= (\r -> f >>= (\f' -> valueParser $ f' r))
+  f <*> p = do r <- p
+               f' <- f
+               pure $ f' r
 
 -- | Write an Applicative functor instance for a @Parser@.
 instance Applicative Parser where
