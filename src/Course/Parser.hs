@@ -149,7 +149,7 @@ flbindParser = flip bindParser
 -- >>> isErrorResult (parse (character >>> valueParser 'v') "")
 -- True
 (>>>) :: Parser a -> Parser b -> Parser b
-pa >>> pb = bindParser (const pb) pa
+pa >>> pb = pa >>= (const pb)
 
 -- | Return a parser that tries the first parser for a successful value.
 --
@@ -171,7 +171,7 @@ pa >>> pb = bindParser (const pb) pa
 (|||) :: Parser a -> Parser a -> Parser a
 p1 ||| p2 = P (\i -> case parse p1 i of
                  r@(Result{}) -> r
-                 ErrorResult e -> parse p2 i)
+                 ErrorResult _ -> parse p2 i)
 
 infixl 3 |||
 
@@ -213,9 +213,9 @@ list p = list1 p ||| valueParser Nil
 -- >>> isErrorResult (parse (list1 (character *> valueParser 'v')) "")
 -- True
 list1 :: Parser a -> Parser (List a)
-list1 p = bindParser (\r ->
-                        bindParser (\lr ->
-                                      valueParser $ r :. lr) $ list p) p
+list1 p = do r <- p
+             lr <- list p
+             valueParser $ r :. lr
 
 -- | Return a parser that produces a character but fails if
 --
@@ -344,7 +344,9 @@ alpha = satisfy isAlpha
 -- True
 sequenceParser :: List (Parser a) -> Parser (List a)
 sequenceParser = foldRight oneStep (valueParser Nil)
-  where oneStep p a = bindParser (\r -> bindParser (\rs -> valueParser $ r :. rs) a) p
+  where oneStep p a = do r <- p
+                         rest <- a
+                         valueParser $ r :. rest
 
 -- | Return a parser that produces the given number of values off the given parser.
 -- This parser fails if the given parser fails in the attempt to produce the given number of values.
@@ -387,9 +389,10 @@ ageParser = natural
 -- >>> isErrorResult (parse firstNameParser "abc")
 -- True
 firstNameParser :: Parser Chars
-firstNameParser = bindParser (\r ->
-                                bindParser (\rs ->
-                                              valueParser $ r :. rs) $ list lower) upper
+firstNameParser = do
+  u <- upper
+  rest <- list lower
+  valueParser $ u :. rest
 
 -- | Write a parser for Person.surname.
 --
@@ -405,10 +408,11 @@ firstNameParser = bindParser (\r ->
 --
 -- >>> isErrorResult (parse surnameParser "abc")
 -- True
-surnameParser ::
-  Parser Chars
-surnameParser =
-  error "todo: Course.Parser#surnameParser"
+surnameParser :: Parser Chars
+surnameParser = do u <- upper
+                   fv <- thisMany 5 lower
+                   rest <- list lower
+                   valueParser $ (u :. fv) ++ rest
 
 -- | Write a parser for Person.smoker.
 --
@@ -424,10 +428,8 @@ surnameParser =
 --
 -- >>> isErrorResult (parse smokerParser "abc")
 -- True
-smokerParser ::
-  Parser Char
-smokerParser =
-  error "todo: Course.Parser#smokerParser"
+smokerParser :: Parser Char
+smokerParser = is 'y' ||| is 'n'
 
 -- | Write part of a parser for Person#phoneBody.
 -- This parser will only produce a string of digits, dots or hyphens.
@@ -446,10 +448,8 @@ smokerParser =
 --
 -- >>> parse phoneBodyParser "a123-456"
 -- Result >a123-456< ""
-phoneBodyParser ::
-  Parser Chars
-phoneBodyParser =
-  error "todo: Course.Parser#phoneBodyParser"
+phoneBodyParser :: Parser Chars
+phoneBodyParser = list (digit ||| is '-' ||| is '.')
 
 -- | Write a parser for Person.phone.
 --
@@ -468,10 +468,12 @@ phoneBodyParser =
 --
 -- >>> isErrorResult (parse phoneParser "a123-456")
 -- True
-phoneParser ::
-  Parser Chars
-phoneParser =
-  error "todo: Course.Parser#phoneParser"
+phoneParser :: Parser Chars
+phoneParser = do
+  d <- digit
+  bdy <- phoneBodyParser
+  is '#'
+  valueParser $ d :. bdy
 
 -- | Write a parser for Person.
 --
@@ -517,10 +519,14 @@ phoneParser =
 --
 -- >>> parse personParser "123 Fred Clarkson y 123-456.789# rest"
 -- Result > rest< Person {age = 123, firstName = "Fred", surname = "Clarkson", smoker = 'y', phone = "123-456.789"}
-personParser ::
-  Parser Person
-personParser =
-  error "todo: Course.Parser#personParser"
+personParser :: Parser Person
+personParser = do
+  ag <- ageParser
+  fnm <- spaces1 >>> firstNameParser
+  snm <- spaces1 >>> surnameParser
+  smk <- spaces1 >>> smokerParser
+  phn <- spaces1 >>> phoneParser
+  valueParser $ Person ag fnm snm smk phn
 
 -- Make sure all the tests pass!
 
@@ -528,38 +534,23 @@ personParser =
 -- | Write a Functor instance for a @Parser@.
 -- /Tip:/ Use @bindParser@ and @valueParser@.
 instance Functor Parser where
-  (<$>) ::
-    (a -> b)
-    -> Parser a
-    -> Parser b
-  (<$>) =
-     error "todo: Course.Parser (<$>)#instance Parser"
+  (<$>) :: (a -> b) -> Parser a -> Parser b
+  f <$> p = p `flbindParser` (\r -> valueParser $ f r)
 
 -- | Write a Apply instance for a @Parser@.
 -- /Tip:/ Use @bindParser@ and @valueParser@.
 instance Apply Parser where
-  (<*>) ::
-    Parser (a -> b)
-    -> Parser a
-    -> Parser b
-  (<*>) =
-    error "todo: Course.Parser (<*>)#instance Parser"
+  (<*>) :: Parser (a -> b) -> Parser a -> Parser b
+  f <*> p = p >>= (\r -> f >>= (\f' -> valueParser $ f' r))
 
 -- | Write an Applicative functor instance for a @Parser@.
 instance Applicative Parser where
-  pure ::
-    a
-    -> Parser a
-  pure =
-    error "todo: Course.Parser pure#instance Parser"
+  pure :: a -> Parser a
+  pure = valueParser
 
 -- | Write a Bind instance for a @Parser@.
 instance Bind Parser where
-  (=<<) ::
-    (a -> Parser b)
-    -> Parser a
-    -> Parser b
-  (=<<) =
-    error "todo: Course.Parser (=<<)#instance Parser"
+  (=<<) :: (a -> Parser b) -> Parser a -> Parser b
+  (=<<) = bindParser
 
 instance Monad Parser where
