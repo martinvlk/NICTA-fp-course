@@ -215,7 +215,7 @@ list p = list1 p ||| pure Nil
 list1 :: Parser a -> Parser (List a)
 list1 p = do r <- p
              lr <- list p
-             pure $ r :. lr
+             return $ r :. lr
 
 -- | Return a parser that produces a character but fails if
 --
@@ -232,7 +232,7 @@ list1 p = do r <- p
 -- True
 satisfy :: (Char -> Bool) -> Parser Char
 satisfy p = do c <- character
-               if p c then pure c
+               if p c then return c
                       else failed
 
 -- | Return a parser that produces the given character but fails if
@@ -277,7 +277,7 @@ digit = satisfy isDigit
 natural :: Parser Int
 natural = do r <- list1 digit
              case read r of
-               Full n -> pure n
+               Full n -> return n
                Empty -> failed
 
 --
@@ -347,7 +347,7 @@ sequenceParser :: List (Parser a) -> Parser (List a)
 sequenceParser = foldRight oneStep (valueParser Nil)
   where oneStep p a = do r <- p
                          rest <- a
-                         pure $ r :. rest
+                         return $ r :. rest
 
 -- | Return a parser that produces the given number of values off the given parser.
 -- This parser fails if the given parser fails in the attempt to produce the given number of values.
@@ -392,7 +392,7 @@ ageParser = natural
 firstNameParser :: Parser Chars
 firstNameParser = do u <- upper
                      rest <- list lower
-                     pure $ u :. rest
+                     return $ u :. rest
 
 -- | Write a parser for Person.surname.
 --
@@ -412,7 +412,7 @@ surnameParser :: Parser Chars
 surnameParser = do u <- upper
                    fv <- thisMany 5 lower
                    rest <- list lower
-                   pure $ (u :. fv) ++ rest
+                   return $ (u :. fv) ++ rest
 
 -- | Write a parser for Person.smoker.
 --
@@ -472,7 +472,7 @@ phoneParser :: Parser Chars
 phoneParser = do d <- digit
                  bdy <- phoneBodyParser
                  is '#'
-                 pure $ d :. bdy
+                 return $ d :. bdy
 
 -- | Write a parser for Person.
 --
@@ -524,7 +524,7 @@ personParser = do ag <- ageParser
                   snm <- spaces1 >>> surnameParser
                   smk <- spaces1 >>> smokerParser
                   phn <- spaces1 >>> phoneParser
-                  pure $ Person ag fnm snm smk phn
+                  return $ Person ag fnm snm smk phn
 
 -- Make sure all the tests pass!
 
@@ -541,7 +541,7 @@ instance Apply Parser where
   (<*>) :: Parser (a -> b) -> Parser a -> Parser b
   f <*> p = do f' <- f
                r <- p
-               pure $ f' r
+               return $ f' r
 
 -- | Write an Applicative functor instance for a @Parser@.
 instance Applicative Parser where

@@ -42,32 +42,19 @@ data SpecialCharacter =
   deriving (Eq, Ord, Show)
 
 -- NOTE: This is not inverse to @toSpecialCharacter@.
-fromSpecialCharacter ::
-  SpecialCharacter
-  -> Char
-fromSpecialCharacter BackSpace =
-  chr 0x08
-fromSpecialCharacter FormFeed =
-  chr 0x0C
-fromSpecialCharacter NewLine =
-  '\n'
-fromSpecialCharacter CarriageReturn =
-  '\r'
-fromSpecialCharacter Tab =
-  '\t'
-fromSpecialCharacter VerticalTab =
-  '\v'
-fromSpecialCharacter SingleQuote =
-  '\''
-fromSpecialCharacter DoubleQuote =
-  '"'
-fromSpecialCharacter Backslash =
-  '\\'
+fromSpecialCharacter :: SpecialCharacter -> Char
+fromSpecialCharacter BackSpace      = chr 0x08
+fromSpecialCharacter FormFeed       = chr 0x0C
+fromSpecialCharacter NewLine        = '\n'
+fromSpecialCharacter CarriageReturn = '\r'
+fromSpecialCharacter Tab            = '\t'
+fromSpecialCharacter VerticalTab    = '\v'
+fromSpecialCharacter SingleQuote    = '\''
+fromSpecialCharacter DoubleQuote    = '"'
+fromSpecialCharacter Backslash      = '\\'
 
 -- NOTE: This is not inverse to @fromSpecialCharacter@.
-toSpecialCharacter ::
-  Char
-  -> Optional SpecialCharacter
+toSpecialCharacter :: Char -> Optional SpecialCharacter
 toSpecialCharacter c =
   let table = ('b', BackSpace) :.
               ('f', FormFeed) :.
@@ -108,10 +95,16 @@ toSpecialCharacter c =
 --
 -- >>> isErrorResult (parse jsonString "\"\\abc\"def")
 -- True
-jsonString ::
-  Parser Chars
-jsonString =
-  error "todo: Course.JsonParser#jsonString"
+jsonString :: Parser Chars
+jsonString = between dquot dquot $ list str
+  where dquot = is '"'
+        str = escapedChar ||| uniChar
+        escapedChar = is '\\' >>> (schar ||| hexu)
+        uniChar = satisfy $ (&&) . not . isControl <*> (`notElem` "\"\\")
+        schar = do c <- character
+                   case toSpecialCharacter c of
+                     Empty -> unexpectedCharParser c
+                     Full d -> return $ fromSpecialCharacter d
 
 -- | Parse a JSON rational.
 --

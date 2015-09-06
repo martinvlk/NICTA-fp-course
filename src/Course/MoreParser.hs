@@ -14,6 +14,8 @@ import Course.Bind
 import Course.Functor
 import Course.Traversable
 
+import Debug.Trace (trace)
+
 -- $setup
 -- >>> :set -XOverloadedStrings
 -- >>> import Course.Parser(isErrorResult, character, lower, is)
@@ -50,7 +52,7 @@ spaces = list space
 tok :: Parser a -> Parser a
 tok p = do r <- p
            spaces
-           pure r
+           return r
 
 -- | Write a function that parses the given char followed by 0 or more spaces.
 --
@@ -171,7 +173,7 @@ between :: Parser o -> Parser c -> Parser a -> Parser a
 between p1 p2 p3 = do p1
                       thrd <- p3
                       p2
-                      pure thrd
+                      return thrd
 
 -- | Write a function that applies the given parser in between the two given characters.
 --
@@ -209,7 +211,7 @@ betweenCharTok c1 c2 = between (charTok c1) (charTok c2)
 hex :: Parser Char
 hex = do frhd <- thisMany 4 $ satisfy isHexDigit
          case readHex frhd of
-           Full h -> pure $ chr h
+           Full h -> return $ chr h
            Empty -> failed
 
 -- | Write a function that parses the character 'u' followed by 4 hex digits and return the character value.
@@ -252,7 +254,7 @@ hexu = is 'u' >>> hex
 sepby1 :: Parser a -> Parser s -> Parser (List a)
 sepby1 p psep = do r <- p
                    rs <- list (psep >>> p)
-                   pure $ r :. rs
+                   return $ r :. rs
 
 -- | Write a function that produces a list of values coming off the given parser,
 -- separated by the second given parser.
@@ -306,7 +308,7 @@ eof = P checkEoi
 satisfyAll :: List (Char -> Bool) -> Parser Char
 satisfyAll ps = do c <- character
                    if and (($ c) <$> ps)
-                     then pure c
+                     then return c
                      else failed
 
 -- | Write a parser that produces a character that satisfies any of the given predicates.
@@ -327,7 +329,7 @@ satisfyAll ps = do c <- character
 satisfyAny :: List (Char -> Bool) -> Parser Char
 satisfyAny ps = do c <- character
                    if or (($ c) <$> ps)
-                     then pure c
+                     then return c
                      else failed
 
 -- | Write a parser that parses between the two given characters, separated by a comma character ','.
@@ -352,4 +354,5 @@ satisfyAny ps = do c <- character
 -- >>> isErrorResult (parse (betweenSepbyComma '[' ']' lower) "a]")
 -- True
 betweenSepbyComma :: Char -> Char -> Parser a -> Parser (List a)
-betweenSepbyComma c1 c2 p = betweenCharTok c1 c2 (p `sepby` (is ','))
+betweenSepbyComma c1 c2 p = betweenCharTok c1 c2 $
+                            p `sepby` (is ',')
