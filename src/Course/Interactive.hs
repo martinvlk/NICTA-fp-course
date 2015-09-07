@@ -14,57 +14,35 @@ import Course.List
 import Course.Optional
 
 -- | Eliminates any value over which a functor is defined.
-vooid ::
-  Functor m =>
-  m a
-  -> m ()
-vooid =
-  (<$>) (const ())
+vooid :: Functor m => m a -> m ()
+vooid = (<$>) (const ())
 
 -- | A version of @bind@ that ignores the result of the effect.
-(>-) ::
-  Monad m =>
-  m a
-  -> m b
-  -> m b
-(>-) a =
-  (>>=) a . const
+(>-) :: Monad m => m a -> m b -> m b
+(>-) a = (>>=) a . const
 
 -- | Runs an action until a result of that action satisfies a given predicate.
-untilM ::
-  Monad m =>
+untilM :: Monad m =>
   (a -> m Bool) -- ^ The predicate to satisfy to stop running the action.
   -> m a -- ^ The action to run until the predicate satisfies.
   -> m a
-untilM p a =
-  a >>= \r ->
-  p r >>= \q ->
-  if q
-    then
-      pure r
-    else
-      untilM p a
+untilM p a = a >>= \r -> p r >>= \q -> if q
+                                       then pure r
+                                       else untilM p a
 
 -- | Example program that uses IO to echo back characters that are entered by the user.
-echo ::
-  IO ()
-echo =
-  vooid (untilM
-          (\c ->
-            if c == 'q'
-              then
-                putStrLn "Bye!" >-
-                pure True
-              else
-                pure False)
-          (putStr "Enter a character: " >-
-           getChar >>= \c ->
-           putStrLn "" >-
-           putStrLn (c :. Nil) >-
-           pure c))
+echo :: IO ()
+echo = vooid (untilM (\c ->
+                        if c == 'q'
+                        then putStrLn "Bye!" >- pure True
+                        else pure False)
+              (putStr "Enter a character: " >-
+               getChar >>= \c ->
+               putStrLn "" >-
+               putStrLn (c :. Nil) >-
+               pure c))
 
-data Op =
-  Op Char Chars (IO ()) -- keyboard entry, description, program
+data Op = Op Char Chars (IO ()) -- keyboard entry, description, program
 
 -- |
 --
@@ -81,10 +59,10 @@ data Op =
 -- /Tip:/ @putStr :: String -> IO ()@ -- Prints a string to standard output.
 --
 -- /Tip:/ @putStrLn :: String -> IO ()@ -- Prints a string and then a new line to standard output.
-convertInteractive ::
-  IO ()
-convertInteractive =
-  error "todo: Course.Interactive#convertInteractive"
+convertInteractive :: IO ()
+convertInteractive = putStr "Enter string: " >-
+                     getLine >>=
+                     putStrLn . (toUpper <$>)
 
 -- |
 --
@@ -109,10 +87,18 @@ convertInteractive =
 -- /Tip:/ @putStr :: String -> IO ()@ -- Prints a string to standard output.
 --
 -- /Tip:/ @putStrLn :: String -> IO ()@ -- Prints a string and then a new line to standard output.
-reverseInteractive ::
-  IO ()
-reverseInteractive =
-  error "todo: Course.Interactive#reverseInteractive"
+reverseInteractive :: IO ()
+reverseInteractive = putStr "Enter name of the file you want to reverse: " >-
+                     getLine >>=
+                     (\inf ->
+                        putStr "Enter the name of the output file: " >-
+                        getLine >>=
+                        (\outf ->
+                           readFile inf >>=
+                           (\ind ->
+                              writeFile outf (reverse ind) >-
+                              putStrLn ("Done, reversed content written into " ++ outf)
+                           )))
 
 -- |
 --
@@ -135,13 +121,17 @@ reverseInteractive =
 -- /Tip:/ @putStr :: String -> IO ()@ -- Prints a string to standard output.
 --
 -- /Tip:/ @putStrLn :: String -> IO ()@ -- Prints a string and then a new line to standard output.
-encodeInteractive ::
-  IO ()
-encodeInteractive =
-  error "todo: Course.Interactive#encodeInteractive"
+encodeInteractive :: IO ()
+encodeInteractive = putStr "Enter string to URL-encode: " >-
+                    getLine >>=
+                    putStrLn . flatten . (enc <$>)
+  where enc c = case c of
+          ' ' -> "%20"
+          '\t' -> "%09"
+          '\"' -> "%22"
+          otherwise -> (c:.Nil)
 
-interactive ::
-  IO ()
+interactive :: IO ()
 interactive =
   let ops = (
                Op 'c' "Convert a string to upper-case" convertInteractive
