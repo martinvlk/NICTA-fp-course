@@ -14,8 +14,6 @@ import Course.Bind
 import Course.Functor
 import Course.Traversable
 
-import Debug.Trace (trace)
-
 -- $setup
 -- >>> :set -XOverloadedStrings
 -- >>> import Course.Parser(isErrorResult, character, lower, is)
@@ -355,4 +353,4 @@ satisfyAny ps = do c <- character
 -- True
 betweenSepbyComma :: Char -> Char -> Parser a -> Parser (List a)
 betweenSepbyComma c1 c2 p = betweenCharTok c1 c2 $
-                            p `sepby` (is ',')
+                            tok p `sepby` charTok ','
