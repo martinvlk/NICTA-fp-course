@@ -28,7 +28,6 @@ import Course.Bind
 import Course.Parser
 import Course.MoreParser
 import Course.Applicative
-import Course.Monad
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -307,13 +306,25 @@ dollars inp = render whl "" "dollar" ++ render (handleCents dec) " and" "cent"
 -- PARSING
 
 numAsGroups :: Parser (List Digit3, List Digit3)
-numAsGroups = do gs1 <- groups
+numAsGroups = do removeDupDots
+                 gs1 <- groups
                  skip $ is '.'
                  gs2 <- groups2
                  return (checkZero gs1, checkZero gs2)
   where checkZero Nil = D1 Zero :. Nil
         checkZero gs = gs
-        skip = list
+
+removeDupDots :: Parser ()
+removeDupDots = P (\i -> Result (doRemove i) ())
+  where doRemove s = let (pr, su) = break (=='.') s
+                         haveOneDot = su /= ""
+                         (pr1, su1) = break (=='.') $ drop 1 su
+                         haveMoreDots = su1 /= ""
+                     in if not haveOneDot
+                        then s
+                        else if haveMoreDots
+                             then pr ++ (doRemove $ drop 1 su)
+                             else s
 
 groups :: Parser (List Digit3)
 groups = gg1 ||| gg2 ||| gg3
@@ -328,7 +339,13 @@ groups = gg1 ||| gg2 ||| gg3
         gg3 = do gs <- list group3
                  endg
                  return gs
-        endg = is '.' ||| eof >>> pure '#'
+
+endg :: Parser Char
+endg = is '.' ||| eof >>> pure '#'
+
+skip :: Parser a -> Parser (List a)
+skip = list
+
 
 groups2 :: Parser (List Digit3)
 groups2 = do g3 <- list group3
@@ -362,14 +379,15 @@ digitTok = do r <- digit
                 Empty -> unexpectedCharParser r
 
 skipNonDigits :: Parser ()
-skipNonDigits = list (noneof "0123456789.") >>> pure ()
+skipNonDigits = do list (noneof "0123456789.")
+                   return ()
 
 -- RENDERING
 
 render :: List Digit3 -> Chars -> Chars -> Chars
-render grps pref post = let grps' = zipWith (flip (,)) illion (reverse grps)
-                            rend = flatMap (++" ") . reverse $ renderGrp <$> eliminateZeroGs grps'
-                        in prefix pref ++ rend ++ handlePlural grps' post
+render grps pref post = prefix pref ++ rend ++ handlePlural grps' post
+  where grps' = zipWith (flip (,)) illion (reverse grps)
+        rend = flatMap (++" ") . reverse $ renderGrp <$> eliminateZeroGs grps'
 
 eliminateZeroGs :: List (Digit3, Chars) -> List (Digit3, Chars)
 eliminateZeroGs = foldRight elim Nil
@@ -377,19 +395,17 @@ eliminateZeroGs = foldRight elim Nil
         elim g gs = g :. gs
 
 handlePlural :: List (Digit3, Chars) -> Chars -> Chars
-handlePlural ((D1 One, _):._) lbl = lbl
-handlePlural ((D2 _ One, _):._) lbl = lbl
-handlePlural ((D3 _ _ One, _):._) lbl = lbl
-handlePlural _ lbl = lbl ++ "s"
+handlePlural ((D1 One, _):._) s = s
+handlePlural ((D2 _ One, _):._) s = s
+handlePlural ((D3 _ _ One, _):._) s = s
+handlePlural _ s = s ++ "s"
 
 renderGrp :: (Digit3, Chars) -> Chars
 renderGrp (D1 d1, lbl) = showDigit d1 ++ label lbl
-
 renderGrp (D2 Zero d2, lbl) = renderGrp (D1 d2, lbl)
 renderGrp (D2 One d2, lbl) = renderTeens d2 ++ label lbl
 renderGrp (D2 d1 Zero, lbl) = renderTens d1 ++ label lbl
 renderGrp (D2 d1 d2, lbl) = (renderTens d1 ++ "-" ++ showDigit d2) ++ label lbl
-
 renderGrp (D3 Zero Zero d3, lbl) = renderGrp (D1 d3, lbl)
 renderGrp (D3 Zero d2 d3, lbl) = renderGrp (D2 d2 d3, lbl)
 renderGrp (D3 d1 d2 d3, lbl) | (d2 == d3) && d3 == Zero =
@@ -421,7 +437,6 @@ renderTeens Six = "sixteen"
 renderTeens Seven = "seventeen"
 renderTeens Eight = "eighteen"
 renderTeens Nine = "nineteen"
-renderTeens n = error $ hlist ("undefined teen: " ++ show' n)
 
 renderTens :: Digit -> Chars
 renderTens Two = "twenty"
@@ -432,4 +447,4 @@ renderTens Six = "sixty"
 renderTens Seven = "seventy"
 renderTens Eight = "eighty"
 renderTens Nine = "ninety"
-renderTens n = error $ hlist ("undefined ten: " ++ show' n)
+renderTens n = error $ show ("undefined ten: " ++ show' n)
