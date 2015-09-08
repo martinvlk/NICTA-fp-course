@@ -306,25 +306,12 @@ dollars inp = render whl "" "dollar" ++ render (handleCents dec) " and" "cent"
 -- PARSING
 
 numAsGroups :: Parser (List Digit3, List Digit3)
-numAsGroups = do removeDupDots
-                 gs1 <- groups
+numAsGroups = do gs1 <- groups
                  skip $ is '.'
                  gs2 <- groups2
                  return (checkZero gs1, checkZero gs2)
   where checkZero Nil = D1 Zero :. Nil
         checkZero gs = gs
-
-removeDupDots :: Parser ()
-removeDupDots = P (\i -> Result (doRemove i) ())
-  where doRemove s = let (pr, su) = break (=='.') s
-                         haveOneDot = su /= ""
-                         (pr1, su1) = break (=='.') $ drop 1 su
-                         haveMoreDots = su1 /= ""
-                     in if not haveOneDot
-                        then s
-                        else if haveMoreDots
-                             then pr ++ (doRemove $ drop 1 su)
-                             else s
 
 groups :: Parser (List Digit3)
 groups = gg1 ||| gg2 ||| gg3
@@ -339,19 +326,31 @@ groups = gg1 ||| gg2 ||| gg3
         gg3 = do gs <- list group3
                  endg
                  return gs
-
-endg :: Parser Char
-endg = is '.' ||| eof >>> pure '#'
+        endg = is '.' ||| eof >>> pure '#'
 
 skip :: Parser a -> Parser (List a)
 skip = list
 
-
 groups2 :: Parser (List Digit3)
-groups2 = do g3 <- list group3
-             g2 <- list group2
-             g1 <- list group1
-             return $ g3 ++ g2 ++ g1
+groups2 = do gs2 <- list group2'
+             gs1 <- list group1'
+             return $ if gs2 /= Nil
+                      then take 1 gs2
+                      else gs1
+  where group1' = do skipNonDigits2
+                     d1 <- digitTok2
+                     return $ D1 d1
+        group2' = do skipNonDigits2
+                     d1 <- digitTok2
+                     d2 <- digitTok2
+                     return $ D2 d1 d2
+        digitTok2 = do r <- digit
+                       skipNonDigits2
+                       case fromChar r of
+                         Full d -> return d
+                         Empty -> unexpectedCharParser r
+        skipNonDigits2 = do skip $ noneof "0123456789"
+                            return ()
 
 group3 :: Parser Digit3
 group3 = do skipNonDigits
@@ -379,7 +378,7 @@ digitTok = do r <- digit
                 Empty -> unexpectedCharParser r
 
 skipNonDigits :: Parser ()
-skipNonDigits = do list (noneof "0123456789.")
+skipNonDigits = do skip $ noneof "0123456789."
                    return ()
 
 -- RENDERING

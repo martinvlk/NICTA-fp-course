@@ -100,6 +100,7 @@ test-suite            doctests
                       directory >= 1.1,
                       QuickCheck >= 2.0,
                       template-haskell >= 2.8
+                    , split
 
   ghc-options:
                       -Wall
