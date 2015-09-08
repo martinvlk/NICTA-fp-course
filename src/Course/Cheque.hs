@@ -25,16 +25,18 @@ import Course.List
 import Course.Functor
 import Course.Apply
 import Course.Bind
+import Course.Parser
+import Course.MoreParser
+import Course.Applicative
+import Course.Monad
 
 -- $setup
 -- >>> :set -XOverloadedStrings
 
 -- The representation of the grouping of each exponent of one thousand. ["thousand", "million", ...]
-illion ::
-  List Chars
+illion :: List Chars
 illion =
-  let preillion ::
-        List (Chars -> Chars)
+  let preillion :: List (Chars -> Chars)
       preillion =
         listh [
           const ""
@@ -48,8 +50,7 @@ illion =
         , const "octo"
         , \q -> if "n" `isPrefixOf` q then "novem" else "noven"
         ]
-      postillion ::
-        List Chars
+      postillion :: List Chars
       postillion =
         listh [
           "vigintillion"
@@ -176,76 +177,50 @@ illion =
      ] ++ lift2 ((++) =<<) preillion postillion
 
 -- A data type representing the digits zero to nine.
-data Digit =
-  Zero
-  | One
-  | Two
-  | Three
-  | Four
-  | Five
-  | Six
-  | Seven
-  | Eight
-  | Nine
-  deriving (Eq, Enum, Bounded)
+data Digit = Zero
+           | One
+           | Two
+           | Three
+           | Four
+           | Five
+           | Six
+           | Seven
+           | Eight
+           | Nine deriving (Eq, Enum, Bounded)
 
-showDigit ::
-  Digit
-  -> Chars
-showDigit Zero =
-  "zero"
-showDigit One =
-  "one"
-showDigit Two =
-  "two"
-showDigit Three =
-  "three"
-showDigit Four =
-  "four"
-showDigit Five =
-  "five"
-showDigit Six =
-  "six"
-showDigit Seven =
-  "seven"
-showDigit Eight =
-  "eight"
-showDigit Nine =
-  "nine"
+showDigit :: Digit -> Chars
+showDigit Zero = "zero"
+showDigit One = "one"
+showDigit Two = "two"
+showDigit Three = "three"
+showDigit Four = "four"
+showDigit Five = "five"
+showDigit Six = "six"
+showDigit Seven = "seven"
+showDigit Eight = "eight"
+showDigit Nine = "nine"
+
+instance Show Digit where
+  show = hlist . showDigit
 
 -- A data type representing one, two or three digits, which may be useful for grouping.
-data Digit3 =
-  D1 Digit
-  | D2 Digit Digit
-  | D3 Digit Digit Digit
-  deriving Eq
+data Digit3 = D1 Digit
+            | D2 Digit Digit
+            | D3 Digit Digit Digit deriving (Eq, Show)
 
 -- Possibly convert a character to a digit.
-fromChar ::
-  Char
-  -> Optional Digit
-fromChar '0' =
-  Full Zero
-fromChar '1' =
-  Full One
-fromChar '2' =
-  Full Two
-fromChar '3' =
-  Full Three
-fromChar '4' =
-  Full Four
-fromChar '5' =
-  Full Five
-fromChar '6' =
-  Full Six
-fromChar '7' =
-  Full Seven
-fromChar '8' =
-  Full Eight
-fromChar '9' =
-  Full Nine
-fromChar _ =
-  Empty
+fromChar :: Char -> Optional Digit
+fromChar '0' = Full Zero
+fromChar '1' = Full One
+fromChar '2' = Full Two
+fromChar '3' = Full Three
+fromChar '4' = Full Four
+fromChar '5' = Full Five
+fromChar '6' = Full Six
+fromChar '7' = Full Seven
+fromChar '8' = Full Eight
+fromChar '9' = Full Nine
+fromChar _ = Empty
 
 -- | Take a numeric value and produce its English output.
 --
@@ -320,8 +295,175 @@ fromChar _ =
 --
 -- >>> dollars "456789123456789012345678901234567890123456789012345678901234567890.12"
 -- "four hundred and fifty-six vigintillion seven hundred and eighty-nine novemdecillion one hundred and twenty-three octodecillion four hundred and fifty-six septendecillion seven hundred and eighty-nine sexdecillion twelve quindecillion three hundred and forty-five quattuordecillion six hundred and seventy-eight tredecillion nine hundred and one duodecillion two hundred and thirty-four undecillion five hundred and sixty-seven decillion eight hundred and ninety nonillion one hundred and twenty-three octillion four hundred and fifty-six septillion seven hundred and eighty-nine sextillion twelve quintillion three hundred and forty-five quadrillion six hundred and seventy-eight trillion nine hundred and one billion two hundred and thirty-four million five hundred and sixty-seven thousand eight hundred and ninety dollars and twelve cents"
-dollars ::
-  Chars
-  -> Chars
-dollars =
-  error "todo: Course.Cheque#dollars"
+dollars :: Chars -> Chars
+dollars inp = render whl "" "dollar" ++ render (handleCents dec) " and" "cent"
+  where (Result _ (whl, dec)) = parse numAsGroups inp
+        handleCents Nil = D1 Zero :. Nil
+        handleCents (D1 d:._) = D2 d Zero :. Nil
+        handleCents (D3 d1 d2 _:._) = D2 d1 d2 :. Nil
+        handleCents gs = gs
+
+
+-- PARSING
+
+{-
+- handle multiple floating points in the input
+-}
+
+numAsGroups :: Parser (List Digit3, List Digit3)
+numAsGroups = do gs1 <- groups
+                 skip $ is '.'
+                 gs2 <- groups2
+                 return (checkZero gs1, checkZero gs2)
+  where checkZero Nil = D1 Zero :. Nil
+        checkZero gs = gs
+        skip = list
+
+groups :: Parser (List Digit3)
+groups = gg1 ||| gg2 ||| gg3
+  where gg1 = do g1 <- group1
+                 gs <- list group3
+                 endg
+                 return $ g1 :. gs
+        gg2 = do g2 <- group2
+                 gs <- list group3
+                 endg
+                 return $ g2 :. gs
+        gg3 = do gs <- list group3
+                 endg
+                 return gs
+        endg = is '.' ||| eof >>> pure '#'
+
+groups2 :: Parser (List Digit3)
+groups2 = do g3 <- list group3
+             g2 <- list group2
+             g1 <- list group1
+             return $ g3 ++ g2 ++ g1
+
+group3 :: Parser Digit3
+group3 = do skipNonDigits
+            d1 <- digitTok
+            d2 <- digitTok
+            d3 <- digitTok
+            return $ D3 d1 d2 d3
+
+group2 :: Parser Digit3
+group2 = do skipNonDigits
+            d1 <- digitTok
+            d2 <- digitTok
+            return $ D2 d1 d2
+
+group1 :: Parser Digit3
+group1 = do skipNonDigits
+            d1 <- digitTok
+            return $ D1 d1
+
+digitTok :: Parser Digit
+digitTok = do r <- digit
+              skipNonDigits
+              case fromChar r of
+                Full d -> return d
+                Empty -> unexpectedCharParser r
+
+skipNonDigits :: Parser ()
+skipNonDigits = list (noneof "0123456789.") >>> pure ()
+
+-- RENDERING
+
+render :: List Digit3 -> Chars -> Chars -> Chars
+render grps pref post = let grps' = zipWith (flip (,)) illion (reverse grps)
+                            rend = flatMap (++" ") . reverse $ renderGrp <$> eliminateZeroGs grps'
+                        in prefix pref ++ rend ++ handlePlural grps' post
+
+eliminateZeroGs :: List (Digit3, Chars) -> List (Digit3, Chars)
+eliminateZeroGs = foldRight elim Nil
+  where elim (D3 Zero Zero Zero, _) gs = gs
+        elim g gs = g :. gs
+
+handlePlural :: List (Digit3, Chars) -> Chars -> Chars
+handlePlural ((D1 One, _):._) lbl = lbl
+handlePlural ((D2 _ One, _):._) lbl = lbl
+handlePlural ((D3 _ _ One, _):._) lbl = lbl
+handlePlural _ lbl = lbl ++ "s"
+
+renderGrp :: (Digit3, Chars) -> Chars
+renderGrp (D1 d1, lbl) = showDigit d1 ++ label lbl
+
+renderGrp (D2 Zero d2, lbl) = renderGrp (D1 d2, lbl)
+renderGrp (D2 One d2, lbl) = renderTeens d2 ++ label lbl
+renderGrp (D2 d1 Zero, lbl) = renderTens d1 ++ label lbl
+renderGrp (D2 d1 d2, lbl) = (renderTens d1 ++ "-" ++ showDigit d2) ++ label lbl
+
+renderGrp (D3 Zero Zero d3, lbl) = renderGrp (D1 d3, lbl)
+renderGrp (D3 Zero d2 d3, lbl) = renderGrp (D2 d2 d3, lbl)
+renderGrp (D3 d1 d2 d3, lbl) | (d2 == d3) && d3 == Zero =
+                                 showHun d1 ++ label lbl
+                             | otherwise =
+                                 showHun d1 ++ (" and" `prefix2` renderGrp (D2 d2 d3, lbl))
+  where showHun d = showDigit d ++ " hundred"
+
+label :: Chars -> Chars
+label "" = ""
+label s = " " ++ s
+
+prefix :: Chars -> Chars
+prefix "" = ""
+prefix s = s ++ " "
+
+prefix2 :: Chars -> Chars -> Chars
+prefix2 _ "" = ""
+prefix2 pf s = pf ++ " " ++ s
+
+renderTeens :: Digit -> Chars
+renderTeens Zero = "ten"
+renderTeens One = "eleven"
+renderTeens Two = "twelve"
+renderTeens Three = "thirteen"
+renderTeens Four = "fourteen"
+renderTeens Five = "fifteen"
+renderTeens Six = "sixteen"
+renderTeens Seven = "seventeen"
+renderTeens Eight = "eighteen"
+renderTeens Nine = "nineteen"
+renderTeens n = error $ hlist ("undefined teen: " ++ show' n)
+
+renderTens :: Digit -> Chars
+renderTens Two = "twenty"
+renderTens Three = "thirty"
+renderTens Four = "forty"
+renderTens Five = "fifty"
+renderTens Six = "sixty"
+renderTens Seven = "seventy"
+renderTens Eight = "eighty"
+renderTens Nine = "ninety"
+renderTens n = error $ hlist ("undefined ten: " ++ show' n)
+
+doTest = [test "0" "zero dollars and zero cents"
+         ,test "1" "one dollar and zero cents"
+         ,test "0.1" "zero dollars and ten cents"
+         ,test "1." "one dollar and zero cents"
+         ,test "0." "zero dollars and zero cents"
+         ,test "0.0" "zero dollars and zero cents"
+         ,test ".34" "zero dollars and thirty-four cents"
+         ,test "0.3456789" "zero dollars and thirty-four cents"
+         ,test "1.0" "one dollar and zero cents"
+         ,test "1.01" "one dollar and one cent"
+         ,test "a1a" "one dollar and zero cents"
+         ,test "a1a.a0.7b" "one dollar and seven cents"
+         ,test "100" "one hundred dollars and zero cents"
+         ,test "100.0" "one hundred dollars and zero cents"
+         ,test "100.00" "one hundred dollars and zero cents"
+         ,test "100.00000" "one hundred dollars and zero cents"
+         ,test "1000456.13" "one million four hundred and fifty-six dollars and thirteen cents"
+         ,test "1001456.13" "one million one thousand four hundred and fifty-six dollars and thirteen cents"
+         ,test "16000000456.13" "sixteen billion four hundred and fifty-six dollars and thirteen cents"
+         ,test "100.45" "one hundred dollars and forty-five cents"
+         ,test "100.07" "one hundred dollars and seven cents"
+         ,test "9abc9def9ghi.jkl9mno" "nine hundred and ninety-nine dollars and ninety cents"
+         ,test "12345.67" "twelve thousand three hundred and forty-five dollars and sixty-seven cents"
+         ,test "456789123456789012345678901234567890123456789012345678901234567890.12" "four hundred and fifty-six vigintillion seven hundred and eighty-nine novemdecillion one hundred and twenty-three octodecillion four hundred and fifty-six septendecillion seven hundred and eighty-nine sexdecillion twelve quindecillion three hundred and forty-five quattuordecillion six hundred and seventy-eight tredecillion nine hundred and one duodecillion two hundred and thirty-four undecillion five hundred and sixty-seven decillion eight hundred and ninety nonillion one hundred and twenty-three octillion four hundred and fifty-six septillion seven hundred and eighty-nine sextillion twelve quintillion three hundred and forty-five quadrillion six hundred and seventy-eight trillion nine hundred and one billion two hundred and thirty-four million five hundred and sixty-seven thousand eight hundred and ninety dollars and twelve cents"]
+
+test inp out = let r = dollars inp
+               in if r == out
+                  then "ok"
+                  else "got# " ++ r ++ ", but expected# " ++ out
