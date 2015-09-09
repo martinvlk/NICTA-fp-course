@@ -14,24 +14,24 @@ module TicTacToe ( move
                  , playerAt
                  , takeBack) where
 
--- |A type that holds the game data.
-data Board = BEmpty
-           | BInPlay
-           | BFinished deriving (Show, Eq)
+class BoardTypeEmpty a where
+  
+class BoardTypeInPlay a where
+  
+class BoardTypeFinished a where
+  
+class BoardTypeEmptyOrInPlay a where
+  
+class BoardTypeInPlayOrFinished a where
+  
+data Board a = Board [Position] deriving (Show, Eq)
+
+class Playable a where
+  move :: (BoardTypeEmptyOrInPlay a, BoardTypeInPlayOrFinished b) => Board a -> Position -> Board b
+  whoWon :: BoardTypeFinished a => Board a -> Player
+  playerAt :: BoardTypeInPlayOrFinished a => Board a -> Position -> Maybe Player
+  takeBack :: BoardTypeInPlay a =>  Board a -> Board a
 
 data Position = Pos Int Int deriving (Show, Eq)
 
 data Player = Player deriving (Show, Eq)
-
-move :: Board -> Position -> Board
-move = undefined
-
-whoWon :: Board -> Player
-whoWon = undefined
-
-playerAt :: Board -> Position -> Maybe Player
-playerAt = undefined
-
-takeBack :: Board -> Board
-takeBack = undefined
-
