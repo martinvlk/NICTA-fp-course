@@ -10,6 +10,12 @@ Stability   : experimental
 Portability : POSIX
 
 The main library for the game.
+
+The concept for the types is such that there is a basic Board type, designed to hold one specific board state (empty, inplay or finished).
+
+In places where we need to accept more than one specific Board type, we use wrapper types that allow the desired combination of basic Board types.
+
+We only export minimum necessary data constructors so that it is not possible for the API user to manipulate the game state, except using the API functions. They can examine the game state freely.
 -}
 module TicTacToe (
                    move
@@ -22,9 +28,6 @@ module TicTacToe (
                  ) where
 
 type Dimensins = (Int, Int)
-
-defaultDimensions :: Dimensins
-defaultDimensions = (10, 10)
 
 type Coord = (Int, Int)
 
@@ -42,21 +45,30 @@ data BoardInPlayOrFinished = BIFInPlay (Board InPlay)
 data BoardEmptyOrInPlay = BEIEmpty (Board Empty)
                         | BEIInPlay (Board InPlay) deriving (Show, Eq)
 
+data BoardAny = AnyEmpty (Board Empty)
+              | AnyInPlay (Board InPlay)
+              | AnyFinished (Board Finished) deriving (Show, Eq)
+
 data Position = PosOccupied Coord Player
               | Pos Coord deriving (Show, Eq)
 
 data Player = Player deriving (Show, Eq)
 
+data InvalidMoveError = InvalidMoveError deriving (Show)
+
 startNewGame :: Board Empty
 startNewGame = BEmpty defaultDimensions
 
-move :: BoardEmptyOrInPlay -> Position -> BoardInPlayOrFinished
+defaultDimensions :: Dimensins
+defaultDimensions = (10, 10)
+
+move :: BoardEmptyOrInPlay -> Position -> Either InvalidMoveError BoardInPlayOrFinished
 move = undefined
 
-whoWon :: Board Finished -> Player
+whoWon :: Board Finished -> Maybe Player
 whoWon = undefined
 
-playerAt :: BoardInPlayOrFinished -> Position -> Maybe Player
+playerAt :: BoardAny -> Position -> Maybe Player
 playerAt = undefined
 
 takeBack :: BoardInPlayOrFinished -> BoardEmptyOrInPlay
