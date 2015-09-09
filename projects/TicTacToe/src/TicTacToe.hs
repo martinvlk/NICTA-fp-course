@@ -1,3 +1,5 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
+
 {-|
 Module      : TicTacToe
 Description : A type-safe API for the game of Tic Tac Toe.
@@ -9,29 +11,53 @@ Portability : POSIX
 
 The main library for the game.
 -}
-module TicTacToe ( move
+module TicTacToe (
+                   move
                  , whoWon
                  , playerAt
-                 , takeBack) where
+                 , takeBack
+                 , startNewGame
+                 , BoardEmptyOrInPlay(..)
+                 , Position(Pos)
+                 ) where
 
-class BoardTypeEmpty a where
-  
-class BoardTypeInPlay a where
-  
-class BoardTypeFinished a where
-  
-class BoardTypeEmptyOrInPlay a where
-  
-class BoardTypeInPlayOrFinished a where
-  
-data Board a = Board [Position] deriving (Show, Eq)
+type Dimensins = (Int, Int)
 
-class Playable a where
-  move :: (BoardTypeEmptyOrInPlay a, BoardTypeInPlayOrFinished b) => Board a -> Position -> Board b
-  whoWon :: BoardTypeFinished a => Board a -> Player
-  playerAt :: BoardTypeInPlayOrFinished a => Board a -> Position -> Maybe Player
-  takeBack :: BoardTypeInPlay a =>  Board a -> Board a
+defaultDimensions :: Dimensins
+defaultDimensions = (10, 10)
 
-data Position = Pos Int Int deriving (Show, Eq)
+type Coord = (Int, Int)
+
+data Empty = Empty deriving (Show)
+data InPlay = InPlay deriving (Show)
+data Finished = Finished deriving (Show)
+
+data Board a = BEmpty Dimensins
+             | BInPlay Dimensins [Position]
+             | BFinished Dimensins [Position] deriving (Show, Eq)
+
+data BoardInPlayOrFinished = BIFInPlay (Board InPlay)
+                           | BIFFinished (Board Finished) deriving (Show, Eq)
+
+data BoardEmptyOrInPlay = BEIEmpty (Board Empty)
+                        | BEIInPlay (Board InPlay) deriving (Show, Eq)
+
+data Position = PosOccupied Coord Player
+              | Pos Coord deriving (Show, Eq)
 
 data Player = Player deriving (Show, Eq)
+
+startNewGame :: Board Empty
+startNewGame = BEmpty defaultDimensions
+
+move :: BoardEmptyOrInPlay -> Position -> BoardInPlayOrFinished
+move = undefined
+
+whoWon :: Board Finished -> Player
+whoWon = undefined
+
+playerAt :: BoardInPlayOrFinished -> Position -> Maybe Player
+playerAt = undefined
+
+takeBack :: BoardInPlayOrFinished -> BoardEmptyOrInPlay
+takeBack = undefined
